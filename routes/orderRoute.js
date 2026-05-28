@@ -9,6 +9,7 @@ const {
   updateOrderStatus,
   addItemToOrder,
   getOrderByTableId,
+  updatePaymentMethod,
 } = require("../controllers/orderController");
 
 const {
@@ -58,6 +59,13 @@ router.put(
   "/:id/add-item",
   isVerifiedUser,
   addItemToOrder
+);
+
+// ✅ UPDATE PAYMENT METHOD
+router.patch(
+  "/:id/payment",
+  isVerifiedUser,
+  updatePaymentMethod
 );
 
 module.exports = router;

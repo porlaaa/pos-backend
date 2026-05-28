@@ -332,6 +332,9 @@ const addItemToOrder = async (
     order.orderStatus =
       "In Progress";
 
+    // ✅ reset payment
+    order.paymentMethod = null;
+
     await order.save();
 
     return res.status(200).json({
@@ -436,6 +439,32 @@ const updateOrderStatus = async (
   }
 };
 
+const updatePaymentMethod = async (req, res) => {
+  try {
+
+    const { paymentMethod } = req.body;
+
+    const order =
+      await Order.findByIdAndUpdate(
+        req.params.id,
+        { paymentMethod },
+        { new: true }
+      );
+
+    res.json({
+      success: true,
+      data: order,
+    });
+
+  } catch (err) {
+
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
 module.exports = {
   addOrder,
   getOrders,
@@ -443,4 +472,5 @@ module.exports = {
   getOrderByTableId,
   addItemToOrder,
   updateOrderStatus,
+  updatePaymentMethod,
 };
