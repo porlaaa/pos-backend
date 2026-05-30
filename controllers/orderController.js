@@ -111,7 +111,13 @@ const addOrder = async (
       table,
       paymentMethod,
     } = req.body;
+    if (!items.length) {
 
+      return res.status(400).json({
+        success: false,
+        message: "Order must contain at least one item",
+      });
+    }
     console.log(
       "CREATE ORDER BODY:",
       req.body
@@ -291,6 +297,13 @@ const addItemToOrder = async (
 
     const items =
       req.body.items || [];
+    if (!items.length) {
+
+      return res.status(400).json({
+        success: false,
+        message: "No items selected",
+      });
+    }
 
     for (const i of items) {
 
@@ -381,19 +394,8 @@ const updateOrderStatus = async (
       });
     }
 
-    order.orderStatus =
-      orderStatus;
-
+    order.orderStatus = orderStatus;
     await order.save();
-
-    if (!order) {
-
-      return res.status(404).json({
-        success: false,
-        message:
-          "Order not found",
-      });
-    }
 
     if (order.table) {
 
