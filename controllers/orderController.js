@@ -357,11 +357,34 @@ const updateOrderStatus = async (
     const { id } = req.params;
 
     const order =
-      await Order.findByIdAndUpdate(
-        id,
-        { orderStatus },
-        { new: true }
-      );
+      await Order.findById(id);
+
+    if (!order) {
+
+      return res.status(404).json({
+        success: false,
+        message:
+          "Order not found",
+      });
+    }
+
+    if (
+      orderStatus ===
+      "Completed" &&
+      !order.paymentMethod
+    ) {
+
+      return res.status(400).json({
+        success: false,
+        message:
+          "Customer has not paid yet",
+      });
+    }
+
+    order.orderStatus =
+      orderStatus;
+
+    await order.save();
 
     if (!order) {
 
