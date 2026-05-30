@@ -30,6 +30,7 @@ const sanitizeItems = (items) =>
     price: i.price,
     quantity: i.quantity,
     total: i.total,
+    note: i.note,
   }));
 
 // =====================================================
@@ -137,8 +138,8 @@ const addOrder = async (
         name: item.name,
         price: item.price,
         quantity: i.quantity,
-        total:
-          item.price * i.quantity,
+        total: item.price * i.quantity,
+        note: i.note || "",
       });
     }
 
@@ -298,32 +299,13 @@ const addItemToOrder = async (
 
       if (!item) continue;
 
-      const existing =
-        order.items.find(
-          (x) =>
-            x.name === item.name
-        );
-
-      if (existing) {
-
-        existing.quantity +=
-          i.quantity;
-
-        existing.total =
-          existing.quantity *
-          existing.price;
-
-      } else {
-
-        order.items.push({
-          name: item.name,
-          price: item.price,
-          quantity: i.quantity,
-          total:
-            item.price *
-            i.quantity,
-        });
-      }
+      order.items.push({
+        name: item.name,
+        price: item.price,
+        quantity: i.quantity,
+        total: item.price * i.quantity,
+        note: i.note || "",
+      });
     }
 
     order.bills =
