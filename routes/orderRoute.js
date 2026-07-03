@@ -30,6 +30,7 @@ router.post(
 // ✅ GET ALL ORDERS
 router.get(
   "/",
+  isVerifiedUser,
   getOrders
 );
 
@@ -37,6 +38,7 @@ router.get(
 // ต้องมาก่อน /:id
 router.get(
   "/table/:tableId",
+  isVerifiedUser,
   getOrderByTableId
 );
 

@@ -25,7 +25,10 @@ const register = async (req, res, next) => {
         const newUser = User(user);
         await newUser.save();
 
-        res.status(201).json({success: true, message: "New user created!", data: newUser});
+        const createdUser = newUser.toObject();
+        delete createdUser.password;
+
+        res.status(201).json({success: true, message: "New user created!", data: createdUser});
 
 
     } catch (error) {
@@ -68,11 +71,14 @@ const login = async (req, res, next) => {
             secure: true
         })
 
+        const loggedInUser = isUserPresent.toObject();
+        delete loggedInUser.password;
+
         res.status(200).json({
-            success: true, 
-            message: "User login successfully!", 
-            accessToken, // ✅ เพิ่มบรรทัดนี้
-            data: isUserPresent
+            success: true,
+            message: "User login successfully!",
+            accessToken,
+            data: loggedInUser
         });
 
 
@@ -85,7 +91,7 @@ const login = async (req, res, next) => {
 const getUserData = async (req, res, next) => {
     try {
         
-        const user = await User.findById(req.user._id);
+        const user = await User.findById(req.user._id).select("-password");
         res.status(200).json({success: true, data: user});
 
     } catch (error) {

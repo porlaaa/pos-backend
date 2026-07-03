@@ -1,12 +1,12 @@
-const cofig = require('../config/config');
+const config = require('../config/config');
 
 const globalErrorHandler = (err, req, res, next) => {
     const statusCode = err.statusCode || 500;
 
     return res.status(statusCode).json({
-        success: statusCode,
+        success: false,
         message: err.message,
-        stack: cofig.nodeEnv === 'development' ? err.stack : ""
+        stack: config.nodeEnv === 'development' ? err.stack : ""
     });
 }
 

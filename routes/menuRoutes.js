@@ -7,11 +7,12 @@ const {
   deleteMenu,
   updateMenu,
 } = require("../controllers/menuController");
+const { isVerifiedUser } = require("../middlewares/tokenVerification");
 
 // Menu
-router.post("/", createMenu);
-router.get("/", getMenus);
-router.delete("/:menuId", deleteMenu);
-router.put("/:menuId", updateMenu);
+router.post("/", isVerifiedUser, createMenu);
+router.get("/", isVerifiedUser, getMenus);
+router.delete("/:menuId", isVerifiedUser, deleteMenu);
+router.put("/:menuId", isVerifiedUser, updateMenu);
 
 module.exports = router;

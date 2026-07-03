@@ -2,17 +2,13 @@ const Order = require("../models/orderModel");
 const Table = require("../models/tableModel");
 const Item = require("../models/itemModel");
 
-// =====================================================
-// 🔥 Helper: คำนวณราคารวมและภาษี
-// =====================================================
+const TAX_RATE = 0.07;
+const VALID_ORDER_STATUSES = ["In Progress", "Ready", "Completed"];
+const VALID_PAYMENT_METHODS = ["Cash", "Online"];
+
 const calculateBills = (items) => {
-
-  const total = items.reduce(
-    (sum, i) => sum + i.total,
-    0
-  );
-
-  const tax = total * 0.0525;
+  const total = items.reduce((sum, item) => sum + item.total, 0);
+  const tax = total * TAX_RATE;
 
   return {
     total,
@@ -21,50 +17,66 @@ const calculateBills = (items) => {
   };
 };
 
-// =====================================================
-// 🔥 Helper: ล้างข้อมูล Item ก่อนส่งกลับ
-// =====================================================
 const sanitizeItems = (items) =>
-  items.map((i) => ({
-    name: i.name,
-    price: i.price,
-    quantity: i.quantity,
-    total: i.total,
-    note: i.note,
+  items.map((item) => ({
+    name: item.name,
+    price: item.price,
+    quantity: item.quantity,
+    total: item.total,
+    note: item.note || "",
   }));
 
-// =====================================================
-// 🔍 GET ORDER BY TABLE ID
-// =====================================================
-const getOrderByTableId = async (
-  req,
-  res
-) => {
+const buildOrderItems = async (items) => {
+  const formattedItems = [];
 
+  for (const itemInput of items) {
+    const itemId = itemInput._id || itemInput.itemId || itemInput.id;
+    const quantity = Number(itemInput.quantity);
+
+    if (!itemId || !Number.isInteger(quantity) || quantity <= 0) {
+      const error = new Error("Invalid order item");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const item = await Item.findById(itemId);
+    if (!item) {
+      const error = new Error("Item not found");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    formattedItems.push({
+      name: item.name,
+      price: item.price,
+      quantity,
+      total: item.price * quantity,
+      note: itemInput.note || "",
+    });
+  }
+
+  return formattedItems;
+};
+
+const getOrderByTableId = async (req, res) => {
   try {
+    const tableId = Number(req.params.tableId);
 
-    const tableId =
-      Number(req.params.tableId);
+    if (!Number.isInteger(tableId) || tableId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid table id",
+      });
+    }
 
-    console.log(
-      "GET ORDER TABLE ID:",
-      tableId
-    );
-
-    const order =
-      await Order.findOne({
-        table: tableId,
-        orderStatus: {
-          $ne: "Completed",
-        },
-      })
-        .sort({
-          createdAt: -1,
-        })
-        .lean();
+    const order = await Order.findOne({
+      table: tableId,
+      orderStatus: { $ne: "Completed" },
+    })
+      .sort({ createdAt: -1 })
+      .lean();
 
     if (!order) {
-
       return res.status(404).json({
         success: false,
         message: "No order found",
@@ -75,186 +87,110 @@ const getOrderByTableId = async (
       success: true,
       data: {
         ...order,
-        items: sanitizeItems(
-          order.items || []
-        ),
+        items: sanitizeItems(order.items || []),
       },
     });
-
   } catch (err) {
-
-    console.log(
-      "GET ORDER ERROR:",
-      err
-    );
-
-    return res.status(500).json({
+    return res.status(err.statusCode || 500).json({
       success: false,
       message: err.message,
     });
   }
 };
 
-// =====================================================
-// 🆕 CREATE ORDER
-// =====================================================
-const addOrder = async (
-  req,
-  res
-) => {
-
+const addOrder = async (req, res) => {
   try {
+    const { items = [], customerDetails, table, paymentMethod } = req.body;
+    const tableId = Number(table);
 
-    const {
-      items = [],
-      customerDetails,
-      table,
-      paymentMethod,
-    } = req.body;
-    if (!items.length) {
-
+    if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({
         success: false,
         message: "Order must contain at least one item",
       });
     }
-    console.log(
-      "CREATE ORDER BODY:",
-      req.body
-    );
 
-    const tableId =
-      Number(table);
-
-    console.log(
-      "TABLE ID:",
-      tableId
-    );
-
-    const formattedItems = [];
-
-    for (const i of items) {
-
-      const item =
-        await Item.findById(i._id);
-
-      if (!item) continue;
-
-      formattedItems.push({
-        name: item.name,
-        price: item.price,
-        quantity: i.quantity,
-        total: item.price * i.quantity,
-        note: i.note || "",
+    if (
+      !customerDetails?.name ||
+      !customerDetails?.phone ||
+      !customerDetails?.guests ||
+      !Number.isInteger(tableId) ||
+      tableId <= 0
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Customer details and table are required",
       });
     }
 
-    const newOrder =
-      await Order.create({
-        items: formattedItems,
-
-        bills:
-          calculateBills(
-            formattedItems
-          ),
-
-        customerDetails,
-
-        table: tableId,
-
-        paymentMethod,
-
-        orderStatus:
-          "In Progress",
+    if (paymentMethod && !VALID_PAYMENT_METHODS.includes(paymentMethod)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid payment method",
       });
-
-    // ✅ update table
-    if (tableId) {
-
-      await Table.findOneAndUpdate(
-        { _id: tableId },
-        {
-          status: "Booked",
-          currentOrder:
-            newOrder._id,
-        }
-      );
     }
+
+    const selectedTable = await Table.findById(tableId);
+    if (!selectedTable) {
+      return res.status(404).json({
+        success: false,
+        message: "Table not found",
+      });
+    }
+
+    const formattedItems = await buildOrderItems(items);
+
+    const newOrder = await Order.create({
+      items: formattedItems,
+      bills: calculateBills(formattedItems),
+      customerDetails,
+      table: tableId,
+      paymentMethod: paymentMethod || null,
+      orderStatus: "In Progress",
+    });
+
+    await Table.findOneAndUpdate(
+      { _id: tableId },
+      {
+        status: "Booked",
+        currentOrder: newOrder._id,
+      }
+    );
 
     return res.status(201).json({
       success: true,
-
-      message:
-        "Order created successfully",
-
+      message: "Order created successfully",
       data: newOrder,
     });
-
   } catch (err) {
-
-    console.log(
-      "CREATE ORDER ERROR:",
-      err
-    );
-
-    return res.status(500).json({
+    return res.status(err.statusCode || 500).json({
       success: false,
       message: err.message,
     });
   }
 };
 
-// =====================================================
-// 📄 GET ALL ORDERS
-// =====================================================
-const getOrders = async (
-  req,
-  res,
-  next
-) => {
-
+const getOrders = async (req, res, next) => {
   try {
-
-    const orders =
-      await Order.find().sort({
-        createdAt: -1,
-      });
+    const orders = await Order.find().sort({ createdAt: -1 });
 
     res.json({
       success: true,
       data: orders,
     });
-
   } catch (err) {
-
-    console.log(err);
-
     next(err);
   }
 };
 
-// =====================================================
-// 🔍 GET ORDER BY ID
-// =====================================================
-const getOrderById = async (
-  req,
-  res,
-  next
-) => {
-
+const getOrderById = async (req, res, next) => {
   try {
-
-    const order =
-      await Order.findById(
-        req.params.id
-      );
+    const order = await Order.findById(req.params.id);
 
     if (!order) {
-
       return res.status(404).json({
         success: false,
-        message:
-          "Order not found",
+        message: "Order not found",
       });
     }
 
@@ -262,135 +198,83 @@ const getOrderById = async (
       success: true,
       data: order,
     });
-
   } catch (err) {
-
-    console.log(err);
-
     next(err);
   }
 };
 
-// =====================================================
-// ➕ ADD ITEM TO ORDER
-// =====================================================
-const addItemToOrder = async (
-  req,
-  res
-) => {
-
+const addItemToOrder = async (req, res) => {
   try {
-
-    const order =
-      await Order.findById(
-        req.params.id
-      );
+    const order = await Order.findById(req.params.id);
 
     if (!order) {
-
       return res.status(404).json({
         success: false,
-        message:
-          "Order not found",
+        message: "Order not found",
       });
     }
 
-    const items =
-      req.body.items || [];
-    if (!items.length) {
+    if (order.orderStatus === "Completed") {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot add items to a completed order",
+      });
+    }
 
+    const items = req.body.items || [];
+    if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({
         success: false,
         message: "No items selected",
       });
     }
 
-    for (const i of items) {
-
-      const item =
-        await Item.findById(i._id);
-
-      if (!item) continue;
-
-      order.items.push({
-        name: item.name,
-        price: item.price,
-        quantity: i.quantity,
-        total: item.price * i.quantity,
-        note: i.note || "",
-      });
-    }
-
-    order.bills =
-      calculateBills(order.items);
-
-    order.orderStatus =
-      "In Progress";
-
-    // ✅ reset payment
+    const formattedItems = await buildOrderItems(items);
+    order.items.push(...formattedItems);
+    order.bills = calculateBills(order.items);
+    order.orderStatus = "In Progress";
     order.paymentMethod = null;
 
     await order.save();
 
     return res.status(200).json({
       success: true,
-      message:
-        "Items added successfully",
+      message: "Items added successfully",
       data: order,
     });
-
   } catch (err) {
-
-    console.log(
-      "ADD ITEM ERROR:",
-      err
-    );
-
-    return res.status(500).json({
+    return res.status(err.statusCode || 500).json({
       success: false,
       message: err.message,
     });
   }
 };
 
-// =====================================================
-// ✅ UPDATE ORDER STATUS
-// =====================================================
-const updateOrderStatus = async (
-  req,
-  res,
-  next
-) => {
-
+const updateOrderStatus = async (req, res, next) => {
   try {
-
-    const { orderStatus } =
-      req.body;
-
+    const { orderStatus } = req.body;
     const { id } = req.params;
 
-    const order =
-      await Order.findById(id);
-
-    if (!order) {
-
-      return res.status(404).json({
+    if (!VALID_ORDER_STATUSES.includes(orderStatus)) {
+      return res.status(400).json({
         success: false,
-        message:
-          "Order not found",
+        message: "Invalid order status",
       });
     }
 
-    if (
-      orderStatus ===
-      "Completed" &&
-      !order.paymentMethod
-    ) {
+    const order = await Order.findById(id);
 
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    if (orderStatus === "Completed" && !order.paymentMethod) {
       return res.status(400).json({
         success: false,
-        message:
-          "Customer has not paid yet",
+        message: "Customer has not paid yet",
       });
     }
 
@@ -398,73 +282,55 @@ const updateOrderStatus = async (
     await order.save();
 
     if (order.table) {
+      const tableId = Number(order.table);
 
-      const tableId =
-        Number(order.table);
-
-      if (
-        orderStatus ===
-        "Completed"
-      ) {
-
-        await Table.findOneAndUpdate(
-          { _id: tableId },
-          {
-            status:
-              "available",
-
-            currentOrder: null,
-          }
-        );
-
-      } else {
-
-        await Table.findOneAndUpdate(
-          { _id: tableId },
-          {
-            status: "Booked",
-
-            currentOrder:
-              order._id,
-          }
-        );
-      }
+      await Table.findOneAndUpdate(
+        { _id: tableId },
+        orderStatus === "Completed"
+          ? { status: "Available", currentOrder: null }
+          : { status: "Booked", currentOrder: order._id }
+      );
     }
 
     res.json({
       success: true,
-      message:
-        `Status updated to ${orderStatus}`,
+      message: `Status updated to ${orderStatus}`,
       data: order,
     });
-
   } catch (err) {
-
-    console.log(err);
-
     next(err);
   }
 };
 
 const updatePaymentMethod = async (req, res) => {
   try {
-
     const { paymentMethod } = req.body;
 
-    const order =
-      await Order.findByIdAndUpdate(
-        req.params.id,
-        { paymentMethod },
-        { new: true }
-      );
+    if (!VALID_PAYMENT_METHODS.includes(paymentMethod)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid payment method",
+      });
+    }
+
+    const order = await Order.findByIdAndUpdate(
+      req.params.id,
+      { paymentMethod },
+      { new: true }
+    );
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
 
     res.json({
       success: true,
       data: order,
     });
-
   } catch (err) {
-
     res.status(500).json({
       success: false,
       message: err.message,
