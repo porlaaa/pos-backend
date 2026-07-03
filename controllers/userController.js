@@ -7,11 +7,30 @@ const config = require("../config/config");
 const ACCESS_TOKEN_MAX_AGE = 1000 * 60 * 60 * 24;
 const VALID_USER_ROLES = ["Waiter", "Cashier", "Admin"];
 
-const getAccessTokenCookieOptions = () => ({
-    httpOnly: true,
-    sameSite: config.nodeEnv === "production" ? "none" : "lax",
-    secure: config.nodeEnv === "production",
-});
+const getAccessTokenCookieOptions = (req) => {
+    const host = req.headers.host || "";
+    const forwardedProto = req.headers["x-forwarded-proto"];
+    const isLocalhost = host.includes("localhost") || host.includes("127.0.0.1");
+    const isSecureRequest = config.nodeEnv === "production" || forwardedProto === "https" || req.secure || !isLocalhost;
+
+    return {
+        httpOnly: true,
+        sameSite: isSecureRequest ? "none" : "lax",
+        secure: isSecureRequest,
+        path: "/",
+    };
+};
+
+const clearAccessTokenCookie = (req, res) => {
+    const cookieOptions = getAccessTokenCookieOptions(req);
+
+    res.clearCookie("accessToken", cookieOptions);
+    res.clearCookie("accessToken", {
+        ...cookieOptions,
+        sameSite: cookieOptions.sameSite === "none" ? "lax" : "none",
+        secure: !cookieOptions.secure,
+    });
+};
 
 const register = async (req, res, next) => {
     try {
@@ -79,7 +98,7 @@ const login = async (req, res, next) => {
         });
 
         res.cookie('accessToken', accessToken, {
-            ...getAccessTokenCookieOptions(),
+            ...getAccessTokenCookieOptions(req),
             maxAge: ACCESS_TOKEN_MAX_AGE
         })
 
@@ -113,9 +132,7 @@ const getUserData = async (req, res, next) => {
 const logout = async (req, res, next) => {
     try {
         
-        res.clearCookie('accessToken', {
-            ...getAccessTokenCookieOptions()
-        });
+        clearAccessTokenCookie(req, res);
 
         res.status(200).json({
             success: true,
