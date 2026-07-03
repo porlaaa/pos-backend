@@ -7,12 +7,14 @@ const {
   deleteMenu,
   updateMenu,
 } = require("../controllers/menuController");
-const { isVerifiedUser } = require("../middlewares/tokenVerification");
+const { isVerifiedUser, requireRole } = require("../middlewares/tokenVerification");
+
+const adminOnly = requireRole("Admin");
 
 // Menu
-router.post("/", isVerifiedUser, createMenu);
+router.post("/", isVerifiedUser, adminOnly, createMenu);
 router.get("/", isVerifiedUser, getMenus);
-router.delete("/:menuId", isVerifiedUser, deleteMenu);
-router.put("/:menuId", isVerifiedUser, updateMenu);
+router.delete("/:menuId", isVerifiedUser, adminOnly, deleteMenu);
+router.put("/:menuId", isVerifiedUser, adminOnly, updateMenu);
 
 module.exports = router;

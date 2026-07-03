@@ -8,11 +8,13 @@ const {
   updateTable,
   deleteTable,
 } = require("../controllers/tableController");
-const { isVerifiedUser } = require("../middlewares/tokenVerification");
+const { isVerifiedUser, requireRole } = require("../middlewares/tokenVerification");
 
-router.post("/", isVerifiedUser, addTable);
+const adminOnly = requireRole("Admin");
+
+router.post("/", isVerifiedUser, adminOnly, addTable);
 router.get("/", isVerifiedUser, getTables);
 router.put("/:id", isVerifiedUser, updateTable);
-router.delete("/:id", isVerifiedUser, deleteTable);
+router.delete("/:id", isVerifiedUser, adminOnly, deleteTable);
 
 module.exports = router;

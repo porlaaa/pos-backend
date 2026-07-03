@@ -4,6 +4,15 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const config = require("../config/config");
 
+const ACCESS_TOKEN_MAX_AGE = 1000 * 60 * 60 * 24;
+const VALID_USER_ROLES = ["Waiter", "Cashier", "Admin"];
+
+const getAccessTokenCookieOptions = () => ({
+    httpOnly: true,
+    sameSite: config.nodeEnv === "production" ? "none" : "lax",
+    secure: config.nodeEnv === "production",
+});
+
 const register = async (req, res, next) => {
     try {
 
@@ -11,6 +20,11 @@ const register = async (req, res, next) => {
 
         if(!name || !phone || !email || !password || !role){
             const error = createHttpError(400, "All fields are required!");
+            return next(error);
+        }
+
+        if(!VALID_USER_ROLES.includes(role)){
+            const error = createHttpError(400, "Invalid role!");
             return next(error);
         }
 
@@ -65,10 +79,8 @@ const login = async (req, res, next) => {
         });
 
         res.cookie('accessToken', accessToken, {
-            maxAge: 1000 * 60 * 60 *24 * 30,
-            httpOnly: true,
-            sameSite: 'none',
-            secure: true
+            ...getAccessTokenCookieOptions(),
+            maxAge: ACCESS_TOKEN_MAX_AGE
         })
 
         const loggedInUser = isUserPresent.toObject();
@@ -77,7 +89,6 @@ const login = async (req, res, next) => {
         res.status(200).json({
             success: true,
             message: "User login successfully!",
-            accessToken,
             data: loggedInUser
         });
 
@@ -103,9 +114,7 @@ const logout = async (req, res, next) => {
     try {
         
         res.clearCookie('accessToken', {
-            httpOnly: true,
-            sameSite: 'none',
-            secure: true
+            ...getAccessTokenCookieOptions()
         });
 
         res.status(200).json({

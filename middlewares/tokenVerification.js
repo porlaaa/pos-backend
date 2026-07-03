@@ -5,23 +5,13 @@ const User = require("../models/userModel");
 
 const isVerifiedUser = async (req, res, next) => {
   try {
-    let token;
+    const { accessToken } = req.cookies;
 
-    // 🔥 รองรับ Bearer token
-    if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
-      token = req.headers.authorization.split(" ")[1];
-    }
-
-    // 🔥 fallback cookie
-    if (!token && req.cookies.accessToken) {
-      token = req.cookies.accessToken;
-    }
-
-    if (!token) {
+    if (!accessToken) {
       return next(createHttpError(401, "Please provide token!"));
     }
 
-    const decodeToken = jwt.verify(token, config.accessTokenSecret);
+    const decodeToken = jwt.verify(accessToken, config.accessTokenSecret);
 
     const user = await User.findById(decodeToken._id);
     if (!user) {
@@ -29,36 +19,24 @@ const isVerifiedUser = async (req, res, next) => {
     }
 
     req.user = user;
-    next();
+    return next();
   } catch (error) {
-    next(createHttpError(401, "Invalid Token!"));
+    return next(createHttpError(401, "Invalid Token!"));
   }
 };
-// const isVerifiedUser = async (req, res, next) => {
-//     try{
 
-//         const { accessToken } = req.cookies;
-        
-//         if(!accessToken){
-//             const error = createHttpError(401, "Please provide token!");
-//             return next(error);
-//         }
+const requireRole = (...allowedRoles) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return next(createHttpError(401, "Please login first!"));
+    }
 
-//         const decodeToken = jwt.verify(accessToken, config.accessTokenSecret);
+    if (!allowedRoles.includes(req.user.role)) {
+      return next(createHttpError(403, "Forbidden: insufficient role"));
+    }
 
-//         const user = await User.findById(decodeToken._id);
-//         if(!user){
-//             const error = createHttpError(401, "User not exist!");
-//             return next(error);
-//         }
+    return next();
+  };
+};
 
-//         req.user = user;
-//         next();
-
-//     }catch (error) {
-//         const err = createHttpError(401, "Invalid Token!");
-//         next(err);
-//     }
-// }
-
-module.exports = { isVerifiedUser };
+module.exports = { isVerifiedUser, requireRole };
