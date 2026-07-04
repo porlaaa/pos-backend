@@ -1,12 +1,18 @@
 # POS Backend
 
-This is the backend API server for the Web POS demo project. It provides authentication, table management, menu/item management, and order workflows for the web and mobile clients.
+This is the backend API server for the Web POS demo project. It handles authentication, restaurant tables, menus, items, orders, and payment status updates for both the web and mobile clients.
 
-## Purpose
+## What It Is
 
-- API server for the restaurant POS demo
-- Shared backend for the React web app and Flutter mobile demo app
-- Intended for portfolio and job application presentation
+The backend is the central API layer of the POS system. The React web app and Flutter mobile demo both communicate with this server to read and update restaurant data.
+
+## How It Works
+
+1. A user logs in from the web or mobile client.
+2. The server verifies the user and returns an authenticated session.
+3. Protected API routes use that session to control access.
+4. The server manages tables, menus, items, and orders.
+5. Order updates are saved in MongoDB and reflected in connected clients.
 
 ## Tech Stack
 
@@ -26,34 +32,15 @@ This is the backend API server for the Web POS demo project. It provides authent
 - Menu category management
 - Item management
 - Order creation and status updates
-- Payment method update for orders
+- Payment method updates for orders
 
-## API Base URL
+## Main API Areas
 
-Local development:
-
-```text
-http://localhost:5000
-```
-
-Android Emulator clients should use:
-
-```text
-http://10.0.2.2:5000
-```
-
-## Environment Variables
-
-Create a local `.env` file in this folder:
-
-```env
-PORT=5000
-MONGO_URI=mongodb://localhost:27017/pos-db
-JWT_SECRET=change-this-secret
-NODE_ENV=development
-```
-
-Do not commit `.env` or real secrets.
+- User authentication
+- Tables
+- Menus
+- Items
+- Orders
 
 ## Run
 
@@ -75,32 +62,6 @@ Run in production mode:
 npm start
 ```
 
-## API Routes
-
-- `POST /api/user/register`
-- `POST /api/user/login`
-- `POST /api/user/logout`
-- `GET /api/user`
-- `GET /api/table`
-- `POST /api/table`
-- `PUT /api/table/:id`
-- `DELETE /api/table/:id`
-- `GET /api/menu`
-- `POST /api/menu`
-- `PUT /api/menu/:menuId`
-- `DELETE /api/menu/:menuId`
-- `GET /api/item`
-- `POST /api/item`
-- `PUT /api/item/:id`
-- `DELETE /api/item/:id`
-- `POST /api/order`
-- `GET /api/order`
-- `GET /api/order/:id`
-- `GET /api/order/table/:tableId`
-- `PUT /api/order/:id`
-- `PUT /api/order/:id/add-item`
-- `PATCH /api/order/:id/payment`
-
 ## Note
 
-This repository is the API backend for the Web POS demo project. It should be deployed with real environment variables configured in the hosting provider, not committed to Git.
+This repository is the API backend for the Web POS demo project. Sensitive configuration and deployment values should be managed locally or through the hosting provider, not documented or committed to Git.
