@@ -33,7 +33,7 @@ const orderSchema = new mongoose.Schema(
       totalWithTax: Number,
     },
 
-    // ✅ FIX สำคัญ
+    // Table id is numeric because the Table collection uses numbered ids.
     table: {
       type: Number,
     },

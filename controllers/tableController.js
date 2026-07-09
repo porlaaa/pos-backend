@@ -45,7 +45,8 @@ const seedTables = async () => {
     await Table.insertMany(tables);
     console.log("Tables created");
   } catch (error) {
-    console.log(error);
+    console.error(`Failed to seed tables: ${error.message}`);
+    throw error;
   }
 };
 

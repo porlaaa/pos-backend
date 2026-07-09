@@ -20,50 +20,49 @@ const {
 // ORDER
 // =====================================================
 
-// ✅ CREATE ORDER
+// CREATE ORDER
 router.post(
   "/",
   isVerifiedUser,
   addOrder
 );
 
-// ✅ GET ALL ORDERS
+// GET ALL ORDERS
 router.get(
   "/",
   isVerifiedUser,
   getOrders
 );
 
-// ✅ IMPORTANT:
-// ต้องมาก่อน /:id
+// IMPORTANT: keep this route before /:id.
 router.get(
   "/table/:tableId",
   isVerifiedUser,
   getOrderByTableId
 );
 
-// ✅ GET ORDER BY ID
+// GET ORDER BY ID
 router.get(
   "/:id",
   isVerifiedUser,
   getOrderById
 );
 
-// ✅ UPDATE ORDER STATUS
+// UPDATE ORDER STATUS
 router.put(
   "/:id",
   isVerifiedUser,
   updateOrderStatus
 );
 
-// ✅ ADD ITEM TO EXISTING ORDER
+// ADD ITEM TO EXISTING ORDER
 router.put(
   "/:id/add-item",
   isVerifiedUser,
   addItemToOrder
 );
 
-// ✅ UPDATE PAYMENT METHOD
+// UPDATE PAYMENT METHOD
 router.patch(
   "/:id/payment",
   isVerifiedUser,

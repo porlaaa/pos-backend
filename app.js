@@ -9,10 +9,8 @@ const { seedTables } = require("./controllers/tableController");
 const app = express();
 const PORT = config.PORT;
 
-connectDB();
-seedTables();
 
-// 🔥 CORS
+// CORS
 app.use(cors({
   origin: [
     'http://localhost:5173',
@@ -42,6 +40,18 @@ app.use("/api/item", require("./routes/itemRoutes"));
 app.use(globalErrorHandler);
 
 // Server
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`☑️ POS Server is listening on port ${PORT}`);
-});
+const startServer = async () => {
+  try {
+    await connectDB();
+    await seedTables();
+
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`POS Server is listening on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error(`Failed to start POS server: ${error.message}`);
+    process.exit(1);
+  }
+};
+
+startServer();

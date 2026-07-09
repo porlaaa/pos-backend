@@ -1,10 +1,48 @@
 const Menu = require("../models/menuModel");
 const Item = require("../models/itemModel");
+const createHttpError = require("http-errors");
+const { Types } = require("mongoose");
+
+const validateObjectId = (id, label = "id") => {
+  if (typeof id !== "string" || !Types.ObjectId.isValid(id)) {
+    throw createHttpError(400, `Invalid ${label}`);
+  }
+};
+
+const normalizeMenuPayload = (payload = {}, { partial = false } = {}) => {
+  const menuData = {};
+
+  if (!partial || payload.name !== undefined) {
+    const name = typeof payload.name === "string" ? payload.name.trim() : "";
+
+    if (!name) {
+      throw createHttpError(400, "Menu name is required");
+    }
+
+    menuData.name = name;
+  }
+
+  if (payload.image !== undefined) {
+    if (typeof payload.image !== "string") {
+      throw createHttpError(400, "Menu image must be a string");
+    }
+
+    menuData.image = payload.image.trim();
+  }
+
+  if (partial && Object.keys(menuData).length === 0) {
+    throw createHttpError(400, "No valid menu fields provided");
+  }
+
+  return menuData;
+};
 
 // CREATE
 const createMenu = async (req, res, next) => {
   try {
-    const menu = await Menu.create(req.body);
+    const menuData = normalizeMenuPayload(req.body);
+    const menu = await Menu.create(menuData);
+
     res.status(201).json({ success: true, data: menu });
   } catch (err) {
     next(err);
@@ -25,8 +63,13 @@ const getMenus = async (req, res, next) => {
 const deleteMenu = async (req, res, next) => {
   try {
     const { menuId } = req.params;
+    validateObjectId(menuId, "menu id");
 
-    await Menu.findByIdAndDelete(menuId);
+    const menu = await Menu.findByIdAndDelete(menuId);
+    if (!menu) {
+      throw createHttpError(404, "Menu not found");
+    }
+
     await Item.deleteMany({ category: menuId });
 
     res.json({ success: true, message: "Menu & items deleted" });
@@ -39,10 +82,18 @@ const deleteMenu = async (req, res, next) => {
 const updateMenu = async (req, res, next) => {
   try {
     const { menuId } = req.params;
-    const updatedMenu = await Menu.findByIdAndUpdate(menuId, req.body, { new: true });
+    validateObjectId(menuId, "menu id");
+
+    const menuData = normalizeMenuPayload(req.body, { partial: true });
+    const updatedMenu = await Menu.findByIdAndUpdate(menuId, menuData, {
+      new: true,
+      runValidators: true,
+    });
+
     if (!updatedMenu) {
-      return res.status(404).json({ success: false, message: "Menu not found" });
+      throw createHttpError(404, "Menu not found");
     }
+
     res.json({ success: true, data: updatedMenu });
   } catch (err) {
     next(err);
